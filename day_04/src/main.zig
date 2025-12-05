@@ -12,6 +12,8 @@ pub fn readInput(allocator: std.mem.Allocator) ![]u8 {
     return buffer[0..bytes_read];
 }
 
+const position = struct { row: usize, col: usize };
+
 const row = struct { elements: []u8 };
 const grid = struct { rows: []row };
 
@@ -21,6 +23,13 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
     const row_count: i32 = 137;
     var g = grid{ .rows = try allocator.alloc(row, row_count) };
     var row_idx: usize = 0;
+    var roll_count: usize = 0;
+
+    for (lines.rest()) |char| {
+        if (char == '@') roll_count += 1;
+    }
+    var rolls_to_check = try allocator.alloc(position, roll_count);
+    var roll_idx: usize = 0;
 
     while (lines.next()) |line| {
         const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
@@ -28,70 +37,77 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
         var r = row{ .elements = try allocator.alloc(u8, trimmed.len) };
         for (0.., trimmed) |i, char| {
             r.elements[i] = char;
+            if (char == '@') {
+                rolls_to_check[roll_idx] = position{ .row = row_idx, .col = i };
+                roll_idx += 1;
+            }
         }
         g.rows[row_idx] = r;
         row_idx += 1;
     }
     //std.debug.print("{d}\n", .{row_idx});
 
-    for (0.., g.rows) |row_num, r| {
-        for (0.., r.elements) |col_num, elem| {
-            var total_neighbors: i32 = 0;
-            //std.debug.print("elem: {c} row: {d} col: {d}\n", .{ elem, row_num, col_num });
-            if (elem != '@') continue;
+    for (rolls_to_check) |roll| {
+        const row_num = roll.row;
+        const col_num = roll.col;
 
-            // not on left edge
-            if (col_num != 0 and r.elements[col_num - 1] == '@') {
-                //std.debug.print("1.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        const r = g.rows[row_num];
+        const elem = g.rows[row_num].elements[col_num];
+        var total_neighbors: i32 = 0;
+        //std.debug.print("elem: {c} row: {d} col: {d}\n", .{ elem, row_num, col_num });
+        if (elem != '@') continue;
 
-            // not on right edge
-            if (col_num != r.elements.len - 1 and r.elements[col_num + 1] == '@') {
-                //std.debug.print("2.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on left edge
+        if (col_num != 0 and r.elements[col_num - 1] == '@') {
+            //std.debug.print("1.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on top edge
-            if (row_num != 0 and g.rows[row_num - 1].elements[col_num] == '@') {
-                //std.debug.print("3.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on right edge
+        if (col_num != r.elements.len - 1 and r.elements[col_num + 1] == '@') {
+            //std.debug.print("2.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on bottom edge
-            if (row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num] == '@') {
-                //std.debug.print("4.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on top edge
+        if (row_num != 0 and g.rows[row_num - 1].elements[col_num] == '@') {
+            //std.debug.print("3.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on top-left edge
-            if (col_num != 0 and row_num != 0 and g.rows[row_num - 1].elements[col_num - 1] == '@') {
-                //std.debug.print("5.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on bottom edge
+        if (row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num] == '@') {
+            //std.debug.print("4.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on top-right edge
-            if (col_num != r.elements.len - 1 and row_num != 0 and g.rows[row_num - 1].elements[col_num + 1] == '@') {
-                //std.debug.print("6.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on top-left edge
+        if (col_num != 0 and row_num != 0 and g.rows[row_num - 1].elements[col_num - 1] == '@') {
+            //std.debug.print("5.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on bottom-left edge
-            if (col_num != 0 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num - 1] == '@') {
-                //std.debug.print("7.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on top-right edge
+        if (col_num != r.elements.len - 1 and row_num != 0 and g.rows[row_num - 1].elements[col_num + 1] == '@') {
+            //std.debug.print("6.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            // not on bottom-right edge
-            if (col_num != r.elements.len - 1 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num + 1] == '@') {
-                //std.debug.print("8.{d} {d}\n", .{ row_num, col_num });
-                total_neighbors += 1;
-            }
+        // not on bottom-left edge
+        if (col_num != 0 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num - 1] == '@') {
+            //std.debug.print("7.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
 
-            if (total_neighbors < 4) {
-                result += 1;
-                //std.debug.print("FOUND: {d} {d}\n\n", .{ row_num, col_num });
-            }
+        // not on bottom-right edge
+        if (col_num != r.elements.len - 1 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num + 1] == '@') {
+            //std.debug.print("8.{d} {d}\n", .{ row_num, col_num });
+            total_neighbors += 1;
+        }
+
+        if (total_neighbors < 4) {
+            result += 1;
+            //std.debug.print("FOUND: {d} {d}\n\n", .{ row_num, col_num });
         }
     }
 
