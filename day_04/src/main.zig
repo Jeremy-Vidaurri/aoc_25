@@ -28,7 +28,8 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
     for (lines.rest()) |char| {
         if (char == '@') roll_count += 1;
     }
-    var rolls_to_check = try allocator.alloc(position, roll_count);
+    var rolls_to_check = try std.ArrayList(position).initCapacity(allocator, roll_count);
+    defer rolls_to_check.deinit(allocator);
     var roll_idx: usize = 0;
 
     while (lines.next()) |line| {
@@ -38,7 +39,7 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
         for (0.., trimmed) |i, char| {
             r.elements[i] = char;
             if (char == '@') {
-                rolls_to_check[roll_idx] = position{ .row = row_idx, .col = i };
+                try rolls_to_check.append(allocator, position{ .row = row_idx, .col = i });
                 roll_idx += 1;
             }
         }
@@ -47,7 +48,7 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
     }
     //std.debug.print("{d}\n", .{row_idx});
 
-    for (rolls_to_check) |roll| {
+    for (rolls_to_check.items) |roll| {
         const row_num = roll.row;
         const col_num = roll.col;
 
@@ -114,9 +115,113 @@ pub fn part_one(input: *[]u8, allocator: std.mem.Allocator) !void {
     std.debug.print("Part 1: {d}\n", .{result});
 }
 
+pub fn part_two(input: *[]u8, allocator: std.mem.Allocator) !void {
+    var lines = std.mem.splitScalar(u8, input.*, '\n');
+    var result: i128 = 0;
+    const row_count: i32 = 137;
+    var g = grid{ .rows = try allocator.alloc(row, row_count) };
+    var row_idx: usize = 0;
+    var roll_count: usize = 0;
+
+    for (lines.rest()) |char| {
+        if (char == '@') roll_count += 1;
+    }
+    var rolls_to_check = try std.ArrayList(position).initCapacity(allocator, roll_count);
+    defer rolls_to_check.deinit(allocator);
+    var roll_idx: usize = 0;
+
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
+        if (trimmed.len == 0) continue;
+        var r = row{ .elements = try allocator.alloc(u8, trimmed.len) };
+        for (0.., trimmed) |i, char| {
+            r.elements[i] = char;
+            if (char == '@') {
+                try rolls_to_check.append(allocator, position{ .row = row_idx, .col = i });
+                roll_idx += 1;
+            }
+        }
+        g.rows[row_idx] = r;
+        row_idx += 1;
+    }
+    //std.debug.print("{d}\n", .{row_idx});
+    var prev_result: i128 = 0;
+    while (true) {
+        prev_result = result;
+        for (rolls_to_check.items) |roll| {
+            const row_num = roll.row;
+            const col_num = roll.col;
+
+            const r = g.rows[row_num];
+            const elem = g.rows[row_num].elements[col_num];
+            var total_neighbors: i32 = 0;
+            //std.debug.print("elem: {c} row: {d} col: {d}\n", .{ elem, row_num, col_num });
+            if (elem != '@') continue;
+
+            // not on left edge
+            if (col_num != 0 and r.elements[col_num - 1] == '@') {
+                //std.debug.print("1.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on right edge
+            if (col_num != r.elements.len - 1 and r.elements[col_num + 1] == '@') {
+                //std.debug.print("2.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on top edge
+            if (row_num != 0 and g.rows[row_num - 1].elements[col_num] == '@') {
+                //std.debug.print("3.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on bottom edge
+            if (row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num] == '@') {
+                //std.debug.print("4.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on top-left edge
+            if (col_num != 0 and row_num != 0 and g.rows[row_num - 1].elements[col_num - 1] == '@') {
+                //std.debug.print("5.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on top-right edge
+            if (col_num != r.elements.len - 1 and row_num != 0 and g.rows[row_num - 1].elements[col_num + 1] == '@') {
+                //std.debug.print("6.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on bottom-left edge
+            if (col_num != 0 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num - 1] == '@') {
+                //std.debug.print("7.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            // not on bottom-right edge
+            if (col_num != r.elements.len - 1 and row_num != g.rows.len - 1 and g.rows[row_num + 1].elements[col_num + 1] == '@') {
+                //std.debug.print("8.{d} {d}\n", .{ row_num, col_num });
+                total_neighbors += 1;
+            }
+
+            if (total_neighbors < 4) {
+                result += 1;
+                g.rows[row_num].elements[col_num] = '.';
+                //std.debug.print("FOUND: {d} {d}\n\n", .{ row_num, col_num });
+            }
+        }
+        if (prev_result == result) break;
+    }
+
+    std.debug.print("Part 1: {d}\n", .{result});
+}
+
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
     var input = try readInput(allocator);
     defer allocator.free(input);
-    try part_one(&input, allocator);
+    //try part_one(&input, allocator);
+    try part_two(&input, allocator);
 }
